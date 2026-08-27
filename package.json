@@ -1,0 +1,24 @@
+{
+  "name": "edge-shield",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reusable Cloudflare Worker that acts as a programmable security layer in front of multiple origins.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "bash scripts/smoke.sh",
+    "cf-typegen": "wrangler types",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260827.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.0"
+  }
+}
