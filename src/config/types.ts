@@ -52,8 +52,14 @@ export interface RateLimitSetting {
   limit: number;
   /** Mirror of the binding's `simple.period`. Cloudflare only allows 10 or 60. */
   period: 10 | 60;
-  /** Value used for the `Retry-After` header. Defaults to `period` when omitted. */
-  retryAfterSeconds?: number;
+  /**
+   * Value used for the `Retry-After` header. `null` means "use `period`".
+   *
+   * It is a nullable field rather than an optional one on purpose: the KV deep merge only
+   * writes keys that already exist in the defaults, so an optional key could never be set
+   * from an override.
+   */
+  retryAfterSeconds: number | null;
 }
 
 export type RateLimitConfig = Record<RateLimitGroup, RateLimitSetting | null>;

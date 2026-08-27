@@ -74,9 +74,9 @@ export const defaultSiteConfig: SiteConfig = {
   // These mirror the `ratelimits` bindings declared in wrangler.jsonc. See the comment on
   // `RateLimitSetting` in types.ts: the numbers are enforced by the binding, not here.
   rateLimits: {
-    login: { limit: 5, period: 60 },
-    xmlrpc: { limit: 5, period: 60 },
-    comments: { limit: 10, period: 60 },
+    login: { limit: 5, period: 60, retryAfterSeconds: null },
+    xmlrpc: { limit: 5, period: 60, retryAfterSeconds: null },
+    comments: { limit: 10, period: 60, retryAfterSeconds: null },
     general: null,
   },
 
