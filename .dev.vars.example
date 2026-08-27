@@ -1,0 +1,24 @@
+# Local development secrets for `wrangler dev`.
+#
+#   cp .dev.vars.example .dev.vars
+#
+# .dev.vars is gitignored. NEVER commit real values.
+# In production these are set with `wrangler secret put <NAME>`, not from a file.
+
+# Bearer token for /__shield/api/*. Any long random string works locally.
+#   openssl rand -hex 32
+SHIELD_ADMIN_TOKEN="local-dev-token-change-me"
+
+# --- Only needed when challenge.enabled is true ---------------------------------
+
+# HMAC key for the Turnstile clearance cookie.
+#   openssl rand -hex 32
+# SHIELD_COOKIE_SECRET="local-dev-cookie-secret-change-me"
+
+# Turnstile keys. The SITE key is public and can also live in `vars` in
+# wrangler.jsonc; the SECRET key never leaves a secret store.
+# Cloudflare publishes always-pass test keys for local development:
+#   site key   1x00000000000000000000AA
+#   secret key 1x0000000000000000000000000000000AA
+# TURNSTILE_SITE_KEY="1x00000000000000000000AA"
+# TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"

@@ -14,6 +14,7 @@
 
 import { handleShieldRequest, isShieldPath } from './admin/api';
 import { buildFailClosedResponse, buildBlockResponse } from './actions/block';
+import { buildChallengeResponse } from './actions/challenge';
 import { loadSite, shouldLogUnknownHost } from './config/loader';
 import type { ResolvedSite } from './config/loader';
 import { defaultGlobalConfig } from './config/defaults';
@@ -42,6 +43,7 @@ async function forwardToOrigin(ctx: RequestContext): Promise<Response> {
  */
 async function respond(
   ctx: RequestContext,
+  env: Env,
   decision: Decision,
   startedAt: number,
 ): Promise<Response> {
@@ -53,7 +55,9 @@ async function respond(
   }
 
   if (isBlocking && !monitored) {
-    return buildBlockResponse(ctx, decision);
+    return decision.action === 'challenge'
+      ? buildChallengeResponse(ctx, env)
+      : buildBlockResponse(ctx, decision);
   }
   return forwardToOrigin(ctx);
 }
@@ -90,7 +94,7 @@ export default {
       const decision = await evaluate(requestContext, env);
 
       // -- 4. Respond. --
-      return await respond(requestContext, decision, startedAt);
+      return await respond(requestContext, env, decision, startedAt);
     } catch (error) {
       logEvent({
         level: 'error',

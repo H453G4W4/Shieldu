@@ -1,0 +1,174 @@
+{
+  // ---------------------------------------------------------------------------
+  // edge-shield -- fully commented multi-zone reference configuration.
+  //
+  // Copy the parts you need into wrangler.jsonc. Nothing here is a secret, but
+  // account ids, zone names and KV namespace ids are yours -- keep them out of a
+  // public repository if that matters to you.
+  //
+  // Requires Wrangler >= 4.36.0 (the `ratelimits` binding).
+  // ---------------------------------------------------------------------------
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  "name": "edge-shield",
+  "main": "src/index.ts",
+
+  // Set this to the day you first deploy. Bumping it later opts into newer runtime
+  // behaviour, so change it deliberately and re-run the tests.
+  "compatibility_date": "2026-08-27",
+
+  // Only needed when your Wrangler login can see more than one account.
+  // "account_id": "<YOUR_ACCOUNT_ID>",
+
+  // ---------------------------------------------------------------------------
+  // Observability
+  //
+  // Writes every console.log line to Workers Logs. `head_sampling_rate` is the
+  // fraction of requests logged: 1 = all, 0.1 = one in ten. Start at 1; lower it
+  // only if the volume becomes a problem.
+  //
+  // Live tail:  npx wrangler tail --format=pretty
+  // ---------------------------------------------------------------------------
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "invocation_logs": true
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // KV: dynamic per-site configuration
+  //
+  //   npx wrangler kv namespace create SHIELD_CONFIG
+  //   npx wrangler kv namespace create SHIELD_CONFIG --preview
+  //
+  // Keys:
+  //   site:<hostname>  -> partial SiteConfig, deep-merged over the static entry
+  //   global           -> partial GlobalConfig
+  //
+  // The binding is optional: with no KV namespace the Worker runs purely on the
+  // static configuration in src/config/sites.ts.
+  // ---------------------------------------------------------------------------
+  "kv_namespaces": [
+    {
+      "binding": "SHIELD_CONFIG",
+      "id": "<REPLACE_WITH_KV_NAMESPACE_ID>",
+      "preview_id": "<REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID>"
+    }
+  ],
+
+  // ---------------------------------------------------------------------------
+  // Rate limiting bindings
+  //
+  // IMPORTANT: `limit` and `period` are fixed HERE, at deploy time. The runtime
+  // API only takes a key -- there is no way to change the numbers per request.
+  // Mirror these values in the `rateLimits` block of each site config so the logs
+  // and the Retry-After header report the truth.
+  //
+  //   period       must be exactly 10 or 60 (seconds)
+  //   namespace_id any positive integer, unique per limit. Two bindings sharing a
+  //                namespace_id share one counter.
+  //
+  // Counters are maintained per Cloudflare location, so the effective global limit
+  // is approximate. That is fine for brute-force protection.
+  // ---------------------------------------------------------------------------
+  "ratelimits": [
+    {
+      // POST wp-login.php and POST /wp-admin/*
+      "name": "RL_LOGIN",
+      "namespace_id": "1001",
+      "simple": { "limit": 5, "period": 60 }
+    },
+    {
+      // /xmlrpc.php, when wordpress.allowXmlrpc is on
+      "name": "RL_XMLRPC",
+      "namespace_id": "1002",
+      "simple": { "limit": 5, "period": 60 }
+    },
+    {
+      // POST /wp-comments-post.php
+      "name": "RL_COMMENTS",
+      "namespace_id": "1003",
+      "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      // Optional site-wide per-IP burst limit, plus admin API attempts.
+      // Off unless a site sets rateLimits.general.
+      "name": "RL_GENERAL",
+      "namespace_id": "1004",
+      "simple": { "limit": 100, "period": 60 }
+    }
+  ],
+
+  // ---------------------------------------------------------------------------
+  // Routes -- one entry per hostname, across as many zones as you like.
+  //
+  // Requirements:
+  //   - the zone lives in the SAME Cloudflare account as this Worker
+  //   - the DNS record is proxied (orange cloud); a grey-cloud record never runs
+  //     a Worker
+  //   - `zone_name` is the ZONE, not the hostname
+  //
+  // In the dashboard, set each route to FAIL OPEN so that hitting the Free plan's
+  // daily request limit sends traffic to the origin instead of returning error
+  // 1027. See docs/cloudflare-setup.md.
+  //
+  // A hostname with no config entry is forwarded to the origin untouched, so it is
+  // safe to add the route before writing the config.
+  // ---------------------------------------------------------------------------
+  "routes": [
+    // Zone 1 -- a WordPress site
+    { "pattern": "example.com/*", "zone_name": "example.com" },
+    { "pattern": "www.example.com/*", "zone_name": "example.com" },
+
+    // Zone 2 -- a second WordPress site
+    { "pattern": "blog.example.org/*", "zone_name": "example.org" },
+
+    // Zone 3 -- a non-WordPress app (type: "generic" in sites.ts)
+    { "pattern": "app.example.net/*", "zone_name": "example.net" }
+
+    // To cover every subdomain of a zone, use a wildcard pattern:
+    // { "pattern": "*.example.com/*", "zone_name": "example.com" }
+  ],
+
+  // ---------------------------------------------------------------------------
+  // Plain variables (NOT secrets). The Turnstile SITE key is public; the SECRET
+  // key is not and must be set with `wrangler secret put`.
+  // ---------------------------------------------------------------------------
+  // "vars": {
+  //   "TURNSTILE_SITE_KEY": "0x4AAAAAAA..."
+  // },
+
+  // ---------------------------------------------------------------------------
+  // Secrets -- never written to this file:
+  //
+  //   npx wrangler secret put SHIELD_ADMIN_TOKEN     # admin API bearer token
+  //   npx wrangler secret put SHIELD_COOKIE_SECRET   # only if challenge is on
+  //   npx wrangler secret put TURNSTILE_SECRET_KEY   # only if challenge is on
+  //
+  // For local development put the same names in .dev.vars (gitignored). See
+  // .dev.vars.example.
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Optional: a staging environment with its own routes and KV namespace.
+  // Deploy it with `npx wrangler deploy --env staging`.
+  // ---------------------------------------------------------------------------
+  "env": {
+    "staging": {
+      "name": "edge-shield-staging",
+      "observability": { "enabled": true, "head_sampling_rate": 1 },
+      "kv_namespaces": [
+        { "binding": "SHIELD_CONFIG", "id": "<REPLACE_WITH_STAGING_KV_NAMESPACE_ID>" }
+      ],
+      "ratelimits": [
+        { "name": "RL_LOGIN", "namespace_id": "2001", "simple": { "limit": 5, "period": 60 } },
+        { "name": "RL_XMLRPC", "namespace_id": "2002", "simple": { "limit": 5, "period": 60 } },
+        { "name": "RL_COMMENTS", "namespace_id": "2003", "simple": { "limit": 10, "period": 60 } },
+        { "name": "RL_GENERAL", "namespace_id": "2004", "simple": { "limit": 100, "period": 60 } }
+      ],
+      "routes": [{ "pattern": "staging.example.com/*", "zone_name": "example.com" }]
+    }
+  }
+}

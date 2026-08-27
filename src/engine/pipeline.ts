@@ -18,6 +18,7 @@
  * single pass; the returned rule id still says which of the three matched.
  */
 
+import { hasClearance } from '../actions/challenge';
 import type { RequestContext } from '../context';
 import type { Decision, Env } from '../config/types';
 import { blockDecisionForMatch, isAllowListed, matchList } from './lists';
@@ -29,6 +30,37 @@ import { evaluateWordPress, evaluateWordPressProbes } from './wordpress';
 
 /** The decision returned when nothing matched. */
 export const ALLOW_DECISION: Decision = { ruleId: 'default.allow', action: 'allow', status: 200 };
+
+/**
+ * Optional Turnstile step (off by default).
+ *
+ * When `challenge.enabled` is on and the matched rule id is listed in
+ * `challenge.challengeRules`, a would-be block becomes an interstitial instead: a visitor
+ * who solves it gets a signed clearance cookie and is let through for `ttlSeconds`. Rules
+ * not listed still block outright.
+ */
+async function maybeChallenge(
+  ctx: RequestContext,
+  env: Env,
+  decision: Decision,
+): Promise<Decision> {
+  const config = ctx.site.config.challenge;
+  if (!config.enabled || decision.action !== 'block') return decision;
+
+  let matches = false;
+  for (let i = 0; i < config.challengeRules.length; i++) {
+    if (decision.ruleId.startsWith(config.challengeRules[i] as string)) {
+      matches = true;
+      break;
+    }
+  }
+  if (!matches) return decision;
+
+  if (await hasClearance(ctx, env, Date.now())) {
+    return { ruleId: 'challenge.cleared', action: 'allow', status: 200, detail: decision.ruleId };
+  }
+  return { ...decision, action: 'challenge' };
+}
 
 /** Country allow mode: only the listed countries may enter. */
 function evaluateCountryAllowMode(ctx: RequestContext): Decision | null {
@@ -53,6 +85,11 @@ function evaluateCountryAllowMode(ctx: RequestContext): Decision | null {
  * binding, so the caller only ever sees `allow` or `block`.
  */
 export async function evaluate(ctx: RequestContext, env: Env): Promise<Decision> {
+  const decision = await evaluateRules(ctx, env);
+  return maybeChallenge(ctx, env, decision);
+}
+
+async function evaluateRules(ctx: RequestContext, env: Env): Promise<Decision> {
   const site = ctx.site;
 
   // -- 2. Allow list wins over everything below. --

@@ -168,6 +168,12 @@ export interface ChallengeConfig {
   ttlSeconds: number;
   /** Cookie name for the signed challenge clearance. */
   cookieName: string;
+  /**
+   * Rule ids (or id prefixes) that should show a challenge instead of a hard block, e.g.
+   * `["wp.login", "ua."]`. A visitor holding a valid clearance cookie skips these rules
+   * entirely. Rules not listed here still block outright.
+   */
+  challengeRules: string[];
 }
 
 /** Per-site configuration. Every field is required after merging with the defaults. */

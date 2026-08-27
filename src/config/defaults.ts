@@ -99,6 +99,7 @@ export const defaultSiteConfig: SiteConfig = {
     enabled: false,
     ttlSeconds: 3600,
     cookieName: 'shield_clearance',
+    challengeRules: [],
   },
 
   logAllowed: false,

@@ -15,6 +15,7 @@
  * isolates keep serving the previous config until their TTL expires (default 60 s).
  */
 
+import { CHALLENGE_SUBMIT_PATH, handleChallengeSubmission } from '../actions/challenge';
 import { defaultSiteConfig, SHIELD_VERSION } from '../config/defaults';
 import { invalidateSite, loadSite, staticSiteFor } from '../config/loader';
 import { deepMerge } from '../config/merge';
@@ -321,6 +322,15 @@ export async function handleShieldRequest(
       return json({ error: 'method_not_allowed' }, 405);
     }
     return json({ ok: true, version: SHIELD_VERSION });
+  }
+
+  // The Turnstile callback is unauthenticated by design: it is the visitor's browser
+  // posting a token, not an operator.
+  if (url.pathname === CHALLENGE_SUBMIT_PATH) {
+    const site = await loadSite(url.hostname.toLowerCase(), env, Date.now());
+    const config = site?.config.challenge ?? defaultSiteConfig.challenge;
+    if (!config.enabled) return json({ error: 'not_found' }, 404);
+    return handleChallengeSubmission(request, env, config, Date.now());
   }
 
   if (!url.pathname.startsWith('/__shield/api')) return json({ error: 'not_found' }, 404);
