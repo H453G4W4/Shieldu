@@ -112,6 +112,15 @@ npx wrangler deploy    # when you are ready
 6. When nothing legitimate is being flagged, switch to `enforce` — either in
    `sites.ts` (redeploy) or through the admin API (instant, no deploy).
 
+**Run `npm test` after every edit to `sites.ts`.** The runtime is deliberately forgiving —
+a malformed CIDR is dropped rather than crashing the shield — which means a typo in the
+static config **fails open**: a mistyped `block.ip` entry is a rule that never fires, and a
+mistyped `wordpress.loginAllowlistIp` empties the list, which the login rule reads as "no
+allow list configured" and lets everyone through. `test/validate.test.ts` runs
+`validateSites()` over `sites.ts` and turns both into a failing build. It also catches
+duplicate hostnames, a `period` other than 10 or 60, uppercase paths that can never match,
+and `hstsPreload` without `includeSubDomains`.
+
 ### Rollout plan
 
 ```
@@ -309,6 +318,7 @@ src/
     defaults.ts         safe baseline for every key
     sites.ts            static per-site entries
     merge.ts            deep merge for KV overrides
+    validate.ts         author-time validation of the static config (test only)
     loader.ts           static + KV merge, module-scope cache
   engine/
     pipeline.ts         ordered evaluation, first match wins

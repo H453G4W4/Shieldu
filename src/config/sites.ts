@@ -6,8 +6,28 @@
  * a redeploy (see `loader.ts` and the admin API).
  *
  * PLACEHOLDERS: replace the example hostnames, admin IPs and country lists with real
- * values before deploying. Every entry below starts in `mode: "monitor"` on purpose —
+ * values before deploying. Every entry below starts in `mode: "monitor"` on purpose --
  * roll out, read the logs for a few days, then flip to `"enforce"`.
+ *
+ * ---------------------------------------------------------------------------------------
+ * ADDING A REAL SITE
+ *
+ *   1. Copy one of the entries below and replace `hosts` with your hostnames, lowercase,
+ *      no scheme, no port.
+ *   2. Put YOUR OWN address in `allow.ip` first. The allow list beats every block rule, so
+ *      it is your way back in when a rule turns out to be wrong.
+ *   3. Add a matching route per hostname in wrangler.jsonc.
+ *   4. Leave `mode: "monitor"`. Read the logs. Only then switch to `"enforce"`.
+ *   5. Run `npm test`.
+ *
+ * Step 5 is not optional busywork. `test/validate.test.ts` runs `validateSites()` over
+ * this file, because the runtime is deliberately forgiving: a malformed CIDR is dropped
+ * silently rather than crashing the shield. That means a typo here fails OPEN --
+ * a mistyped `block.ip` entry is a rule that never fires, and a mistyped
+ * `wordpress.loginAllowlistIp` empties the list, which the login rule reads as
+ * "no allow list configured" and lets everyone through. The test turns both into a
+ * failing build instead of a silent hole.
+ * ---------------------------------------------------------------------------------------
  */
 
 import type { SiteConfig, DeepPartial } from './types';
